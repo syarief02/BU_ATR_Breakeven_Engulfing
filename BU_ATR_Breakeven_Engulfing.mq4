@@ -34,12 +34,12 @@ string MB_CAPTION = ExpertName + " v" + Version + " | " + Copyright;
 extern int MaxLayer = 10;
 extern double LotSize = 0.01; // Keep this declaration
 extern double StopLoss = 100;
-extern double TakeProfit = 200;
+extern double TakeProfit = 20;
 extern int RSIPeriod = 14; // RSI period input parameter
 extern double RSIBuy = 70; // RSI value for BUY input parameter
 extern double RSISell = 30; // RSI value for SELL input parameter
 extern int BreakevenPips = 20; // Pips to move to breakeven
-extern int TrailingPips = 10; // Pips for trailing stop
+extern int TrailingPips = 100; // Pips for trailing stop
 extern int MagicNumber = 12345; // Magic number input parameter
 extern int ATRPeriod = 14; // ATR period input parameter
 extern double ATRMultiplier = 1.5; // ATR multiplier input parameter
@@ -49,7 +49,7 @@ int ticket = 0;
 
 // Function to return authorization message
 string AuthMessage() {
-    return "Your authorization message here."; // Customize as needed
+    return ""; // Customize as needed
 }
 
 // Function to count buy orders
@@ -102,26 +102,34 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
-    //-- Get Date String
-   datetime Today = StrToTime(StringConcatenate(Year(), ".", Month(), ".", Day()));
-   string Date = TimeToStr(TimeCurrent(), TIME_DATE + TIME_MINUTES + TIME_SECONDS); //"yyyy.mm.dd"
-//--EA Comment--
+    if (!newbar()) return; // Check for new bar
 
-     {
-      Comment(
-         "\n ", Copyright,
-         "\n ", Date, "\n",
-         "\n ", AuthMessage(), "\n",
-         "\n ", EA_Name,
-         "\n Starting Lot: ", LotSize,
-         "\n Equity: $", NormalizeDouble(AccountInfoDouble(ACCOUNT_EQUITY), 2),
-         "\n Buy: ", CountBuy(), " | Sell: ", CountSell(),
-         "\n");
-     }
-    // Main(); // Removed the call to Main() since it's undefined
+    double rsiValue = iRSI(NULL, 0, RSIPeriod, PRICE_CLOSE, 1); // Get RSI value for the latest bar
+
+    // Check for bullish engulfing pattern with RSI filter
+    if (isBullishEngulfing(1) && rsiValue >= RSIBuy && CountBuy() < MaxLayer) {
+        OpenBuyOrder(); // Attempt to open a buy order
+    }
+    
+    // Check for bearish engulfing pattern with RSI filter
+    if (isBearishEngulfing(1) && rsiValue <= RSISell && CountSell() < MaxLayer) {
+        OpenSellOrder(); // Attempt to open a sell order
+    }
+
+    // Manage trailing stops and breakeven
     ApplyTrailingAndBreakeven(BreakevenPips, TrailingPips);
-    ApplyATRTrailingStop(ATRPeriod, ATRMultiplier);
-    StopLossManagement();   // Manage SL for all open positions on every tick
+    StopLossManagement(); // Manage SL for all open positions on every tick
+}
+
+// Function to check for new bar
+bool newbar() {
+    static datetime lastTime = 0;
+    datetime currentTime = Time[0];
+    if (currentTime != lastTime) {
+        lastTime = currentTime;
+        return true;
+    }
+    return false;
 }
 
 // Function to check for Bullish Engulfing pattern
@@ -287,7 +295,7 @@ void StopLossManagement()
 {
     double ma_value = iMA(NULL, 0, 30, 0, MODE_SMA, PRICE_CLOSE, 0); // Hardcoded MA period
     double sl_diff = 12 * Point; // Hardcoded SL distance in pips
-    double minStopLevel = 10 * Point; // Hardcoded minimum stop level
+    double minStopLevel = MarketInfo(Symbol(), MODE_STOPLEVEL) * Point; // Get minimum stop level from broker
 
     // Loop through all open orders
     for (int i = OrdersTotal() - 1; i >= 0; i--)
@@ -314,13 +322,16 @@ void StopLossManagement()
                     // Modify SL if required
                     if (OrderStopLoss() < new_stop_loss_buy || OrderStopLoss() == 0) 
                     {
-                        if (OrderModify(OrderTicket(), OrderOpenPrice(), new_stop_loss_buy, OrderTakeProfit(), 0, clrRed))
+                        if (new_stop_loss_buy > OrderOpenPrice()) // Ensure SL is below the open price for buy orders
                         {
-                            Print("Stop Loss for Buy Order Adjusted to: ", new_stop_loss_buy);
-                        }
-                        else
-                        {
-                            Print("Failed to modify Buy order Stop Loss: ", GetLastError());
+                            if (OrderModify(OrderTicket(), OrderOpenPrice(), new_stop_loss_buy, OrderTakeProfit(), 0, clrRed))
+                            {
+                                Print("Stop Loss for Buy Order Adjusted to: ", new_stop_loss_buy);
+                            }
+                            else
+                            {
+                                Print("Failed to modify Buy order Stop Loss: ", GetLastError());
+                            }
                         }
                     }
                 }
@@ -341,13 +352,16 @@ void StopLossManagement()
                     // Modify SL if required
                     if (OrderStopLoss() > new_stop_loss_sell || OrderStopLoss() == 0)
                     {
-                        if (OrderModify(OrderTicket(), OrderOpenPrice(), new_stop_loss_sell, OrderTakeProfit(), 0, clrRed))
+                        if (new_stop_loss_sell < OrderOpenPrice()) // Ensure SL is above the open price for sell orders
                         {
-                            Print("Stop Loss for Sell Order Adjusted to: ", new_stop_loss_sell);
-                        }
-                        else
-                        {
-                            Print("Failed to modify Sell order Stop Loss: ", GetLastError());
+                            if (OrderModify(OrderTicket(), OrderOpenPrice(), new_stop_loss_sell, OrderTakeProfit(), 0, clrRed))
+                            {
+                                Print("Stop Loss for Sell Order Adjusted to: ", new_stop_loss_sell);
+                            }
+                            else
+                            {
+                                Print("Failed to modify Sell order Stop Loss: ", GetLastError());
+                            }
                         }
                     }
                 }
