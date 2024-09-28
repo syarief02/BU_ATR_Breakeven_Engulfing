@@ -18,7 +18,7 @@
 ## Download
 You can download the compiled version of the EA from the following link:
 
-- [Download BU ATR BreakEven Engulfing EA (EX4)](./BU_ATR_Breakeven_Engulfing.ex4)
+- [Download BU ATR BreakEven Engulfing EA (EX4)](https://github.com/syarief02/BU_ATR_Breakeven_Engulfing/raw/refs/heads/main/BU_ATR_Breakeven_Engulfing.ex4)
 
 ## Overview
 The BU ATR BreakEven Engulfing EA is a sophisticated trading algorithm designed for the MetaTrader 4 platform. It utilizes the Average True Range (ATR) and the Engulfing candlestick pattern to make informed trading decisions. This EA is particularly suited for the M5 timeframe and is optimized for trading ranging currency pairs, providing traders with a systematic approach to market entry and exit.
