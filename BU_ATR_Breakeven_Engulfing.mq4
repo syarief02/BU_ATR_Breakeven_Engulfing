@@ -119,6 +119,9 @@ void OnTick()
     // Manage trailing stops and breakeven
     ApplyTrailingAndBreakeven(BreakevenPips, TrailingPips);
     StopLossManagement(); // Manage SL for all open positions on every tick
+
+    // Update chart comment
+    ChartComment();
 }
 
 // Function to check for new bar
@@ -372,6 +375,37 @@ void StopLossManagement()
             Print("Failed to select order: ", GetLastError());
         }
     }
+}
+
+//+------------------------------------------------------------------+
+//| Function to update chart comment                                 |
+//+------------------------------------------------------------------+
+void ChartComment()
+{
+    // Get Date String
+    datetime Today = StrToTime(StringConcatenate(Year(), ".", Month(), ".", Day()));
+    string Date = TimeToStr(TimeCurrent(), TIME_DATE + TIME_MINUTES + TIME_SECONDS); //"yyyy.mm.dd"
+
+    // Prepare the comment
+    string comment = StringFormat(
+        "\n %s"
+        "\n %s"
+        "\n %s"
+        "\n Starting Lot: %.2f"
+        "\n Equity: $%.2f"
+        "\n Buy: %d | Sell: %d"
+        "\n",
+        Copyright,
+        Date,
+        EA_Name,
+        LotSize,
+        NormalizeDouble(AccountInfoDouble(ACCOUNT_EQUITY), 2),
+        CountBuy(),
+        CountSell()
+    );
+
+    // Display the comment on the chart
+    Comment(comment);
 }
 
 // ... Additional functions can be added as needed ...
