@@ -55,6 +55,9 @@ extern AnalysisMode TradeAnalysisMode = OnNewBar; // Dropdown input for analysis
 int ticket = 0;             // Variable to store the ticket number of the last order
 bool tradeExecuted = false; // Flag to track if a trade has been executed
 
+// Global variable to track the last trade time
+datetime lastTradeTime = 0;
+
 // Function to return authorization message
 string AuthMessage()
 {
@@ -95,6 +98,28 @@ int CountSell()
     return count; // Return the total count of sell orders
 }
 
+// Function to check if a trade has been made in the last day
+bool HasTradedInLastDay()
+{
+    return (lastTradeTime != 0 && TimeCurrent() - lastTradeTime < 86400); // 86400 seconds in a day
+}
+
+// Function to open a trade based on the daily candle
+void OpenTradeBasedOnDailyCandle()
+{
+    double dailyOpen = iOpen(NULL, PERIOD_D1, 0);
+    double dailyClose = iClose(NULL, PERIOD_D1, 0);
+
+    if (dailyClose > dailyOpen) // Bullish candle
+    {
+        OpenBuyOrder();
+    }
+    else if (dailyClose < dailyOpen) // Bearish candle
+    {
+        OpenSellOrder();
+    }
+}
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -103,8 +128,8 @@ int OnInit() // Initialization function called when the EA starts
     if (TakeProfit <= 0)  // Check if the TakeProfit value is less than or equal to zero
         TakeProfit = 200; // Set a default TakeProfit value if the condition is true
 
-    // Call OnTester to set up testing conditions
-    OnTester();
+    // // Call OnTester to set up testing conditions
+    // OnTester();
 
     return INIT_SUCCEEDED; // Return success status for initialization
 }
@@ -167,6 +192,15 @@ void OnDeinit(const int reason) // Deinitialization function called when the EA 
 //+------------------------------------------------------------------+
 void OnTick() // Function called on every market tick
 {
+    // Check if a trade has been made in the last day
+    if (!HasTradedInLastDay())
+    {
+        OpenTradeBasedOnDailyCandle();
+        lastTradeTime = TimeCurrent(); // Update last trade time
+        return; // Exit the function after opening a trade
+    }
+
+    // Existing trading logic...
     // Check the selected analysis mode
     if (TradeAnalysisMode == OnNewBar && !newbar())
     {
