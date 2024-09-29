@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // sourcesatr
-#define Version "1.00"                                                       // Define the version of the EA
+#define Version "1.01"                                                       // Define the version of the EA
 #property version Version                                                    // Set the version property for the EA
 #property link "https://m.me/EABudakUbat"                                    // Link to the EA's support or information page
 #property description "This is a ATR BreakEven Engulfing EA "                // Description of the EA
@@ -181,6 +181,18 @@ void OpenBuyOrder()
     double sl = price - StopLoss * Point;   // Calculate stop loss price based on the defined stop loss in pips
     double tp = price + TakeProfit * Point; // Calculate take profit price based on the defined take profit in pips
 
+    // Check if LotSize is valid
+    if (LotSize < MarketInfo(Symbol(), MODE_MINLOT) || LotSize > MarketInfo(Symbol(), MODE_MAXLOT)) {
+        Print("Invalid LotSize: ", LotSize);
+        return; // Exit the function if LotSize is invalid
+    }
+
+    // Check if StopLoss and TakeProfit are valid
+    if (sl < 0 || tp < 0 || (tp - price) < Point || (price - sl) < Point) {
+        Print("Invalid StopLoss or TakeProfit values.");
+        return; // Exit the function if SL or TP is invalid
+    }
+
     ticket = OrderSend(Symbol(), OP_BUY, LotSize, price, 3, sl, tp, "Buy Order", MagicNumber, 0, clrGreen); // Send a buy order
     if (ticket < 0)
     {                                                       // Check if the order was not successful
@@ -198,6 +210,18 @@ void OpenSellOrder()
     double price = Bid;                     // Get the current bid price
     double sl = price + StopLoss * Point;   // Calculate stop loss price based on the defined stop loss in pips
     double tp = price - TakeProfit * Point; // Calculate take profit price based on the defined take profit in pips
+
+    // Check if LotSize is valid
+    if (LotSize < MarketInfo(Symbol(), MODE_MINLOT) || LotSize > MarketInfo(Symbol(), MODE_MAXLOT)) {
+        Print("Invalid LotSize: ", LotSize);
+        return; // Exit the function if LotSize is invalid
+    }
+
+    // Check if StopLoss and TakeProfit are valid
+    if (sl < 0 || tp < 0 || (price - tp) < Point || (sl - price) < Point) {
+        Print("Invalid StopLoss or TakeProfit values.");
+        return; // Exit the function if SL or TP is invalid
+    }
 
     ticket = OrderSend(Symbol(), OP_SELL, LotSize, price, 3, sl, tp, "Sell Order", MagicNumber, 0, clrRed); // Send a sell order
     if (ticket < 0)
