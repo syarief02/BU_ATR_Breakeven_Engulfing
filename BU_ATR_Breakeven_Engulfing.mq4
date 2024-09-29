@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // sourcesatr
-#define Version "1.01"                                                       // Define the version of the EA
+#define Version "1.02"                                                       // Define the version of the EA
 #property version Version                                                    // Set the version property for the EA
 #property link "https://m.me/EABudakUbat"                                    // Link to the EA's support or information page
 #property description "This is a ATR BreakEven Engulfing EA "                // Description of the EA
