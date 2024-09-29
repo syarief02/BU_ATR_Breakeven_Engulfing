@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 //---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 // sourcesatr
-#define Version "1.02"                                                       // Define the version of the EA
+#define Version "1.01"                                                       // Define the version of the EA
 #property version Version                                                    // Set the version property for the EA
 #property link "https://m.me/EABudakUbat"                                    // Link to the EA's support or information page
 #property description "This is a ATR BreakEven Engulfing EA "                // Description of the EA
@@ -46,7 +46,8 @@ extern int ATRPeriod = 14;         // Period for the ATR (Average True Range)
 extern double ATRMultiplier = 1.5; // Multiplier for the ATR value
 
 // Global variables
-int ticket = 0; // Variable to store the ticket number of the last order
+int ticket = 0;             // Variable to store the ticket number of the last order
+bool tradeExecuted = false; // Flag to track if a trade has been executed
 
 // Function to return authorization message
 string AuthMessage()
@@ -95,8 +96,50 @@ int OnInit() // Initialization function called when the EA starts
 {
     if (TakeProfit <= 0)  // Check if the TakeProfit value is less than or equal to zero
         TakeProfit = 200; // Set a default TakeProfit value if the condition is true
-    // Initialization code here (additional setup can be added)
-    return (INIT_SUCCEEDED); // Return success status for initialization
+
+    // Call OnTester to set up testing conditions
+    OnTester();
+
+    return INIT_SUCCEEDED; // Return success status for initialization
+}
+
+//+------------------------------------------------------------------+
+//| OnTester function for testing conditions                         |
+//+------------------------------------------------------------------+
+double OnTester()
+{
+    // Force a trade on initialization
+    if (!tradeExecuted) {
+        double price = Ask; // Get the current ask price
+        double sl = price - StopLoss * Point; // Calculate stop loss price
+        double tp = price + TakeProfit * Point; // Calculate take profit price
+
+        // Validate LotSize
+        double minLot = MarketInfo(Symbol(), MODE_MINLOT);
+        double maxLot = MarketInfo(Symbol(), MODE_MAXLOT);
+        if (LotSize < minLot || LotSize > maxLot) {
+            Print("Invalid LotSize: ", LotSize, " (Min: ", minLot, ", Max: ", maxLot, ")");
+            return 0; // Exit if LotSize is invalid
+        }
+
+        // Validate StopLoss and TakeProfit
+        double stopLevel = MarketInfo(Symbol(), MODE_STOPLEVEL) * Point; // Minimum distance for stop loss and take profit
+        if (sl < 0 || tp < 0 || (tp - price) < stopLevel || (price - sl) < stopLevel) {
+            Print("Invalid StopLoss or TakeProfit values. SL: ", sl, ", TP: ", tp);
+            return 0; // Exit if SL or TP is invalid
+        }
+
+        // Open a buy order
+        ticket = OrderSend(Symbol(), OP_BUY, LotSize, price, 3, sl, tp, "Forced Buy Order", MagicNumber, 0, clrGreen);
+        if (ticket < 0) {
+            Print("Error opening forced BUY order: ", GetLastError()); // Print error message
+        } else {
+            Print("Forced BUY order opened successfully"); // Print success message
+            tradeExecuted = true; // Set the flag to true
+        }
+    }
+
+    return 0; // Return 0 for no specific result
 }
 
 //+------------------------------------------------------------------+
@@ -115,29 +158,34 @@ void OnTick() // Function called on every market tick
     if (!newbar())
         return; // Check for a new bar; if not, exit the function
 
+    // Your existing trading logic here...
     double rsiValue = iRSI(NULL, 0, RSIPeriod, PRICE_CLOSE, 1); // Get the RSI value for the latest bar
     Print("Current RSI Value: ", rsiValue); // Log the current RSI value
 
     // Check for bullish engulfing pattern with RSI filter
-    if (isBullishEngulfing(1) && rsiValue >= RSIBuy && CountBuy() < MaxLayer)
-    {                   // If a bullish engulfing pattern is detected and RSI is above the buy threshold
-        Print("Bullish Engulfing detected. Attempting to open a buy order."); // Log the attempt to open a buy order
+    bool bullishEngulfing = isBullishEngulfing(1);
+    Print("Bullish Engulfing: ", bullishEngulfing); // Log the result of the bullish engulfing check
+    if (bullishEngulfing && rsiValue >= RSIBuy && CountBuy() < MaxLayer)
+    {                   
+        Print("Attempting to open a buy order."); // Log the attempt to open a buy order
         OpenBuyOrder(); // Attempt to open a buy order
     }
     else
     {
-        Print("No bullish engulfing pattern or conditions not met for buy."); // Log if conditions are not met
+        Print("Conditions not met for buy. Bullish: ", bullishEngulfing, ", RSI: ", rsiValue); // Log if conditions are not met
     }
 
     // Check for bearish engulfing pattern with RSI filter
-    if (isBearishEngulfing(1) && rsiValue <= RSISell && CountSell() < MaxLayer)
-    {                    // If a bearish engulfing pattern is detected and RSI is below the sell threshold
-        Print("Bearish Engulfing detected. Attempting to open a sell order."); // Log the attempt to open a sell order
+    bool bearishEngulfing = isBearishEngulfing(1);
+    Print("Bearish Engulfing: ", bearishEngulfing); // Log the result of the bearish engulfing check
+    if (bearishEngulfing && rsiValue <= RSISell && CountSell() < MaxLayer)
+    {                    
+        Print("Attempting to open a sell order."); // Log the attempt to open a sell order
         OpenSellOrder(); // Attempt to open a sell order
     }
     else
     {
-        Print("No bearish engulfing pattern or conditions not met for sell."); // Log if conditions are not met
+        Print("Conditions not met for sell. Bearish: ", bearishEngulfing, ", RSI: ", rsiValue); // Log if conditions are not met
     }
 
     // Manage trailing stops and breakeven
@@ -193,14 +241,19 @@ void OpenBuyOrder()
     double tp = price + TakeProfit * Point; // Calculate take profit price based on the defined take profit in pips
 
     // Check if LotSize is valid
-    if (LotSize < MarketInfo(Symbol(), MODE_MINLOT) || LotSize > MarketInfo(Symbol(), MODE_MAXLOT)) {
-        Print("Invalid LotSize: ", LotSize);
+    double minLot = MarketInfo(Symbol(), MODE_MINLOT);
+    double maxLot = MarketInfo(Symbol(), MODE_MAXLOT);
+    if (LotSize < minLot || LotSize > maxLot)
+    {
+        Print("Invalid LotSize: ", LotSize, " (Min: ", minLot, ", Max: ", maxLot, ")");
         return; // Exit the function if LotSize is invalid
     }
 
     // Check if StopLoss and TakeProfit are valid
-    if (sl < 0 || tp < 0 || (tp - price) < Point || (price - sl) < Point) {
-        Print("Invalid StopLoss or TakeProfit values.");
+    double stopLevel = MarketInfo(Symbol(), MODE_STOPLEVEL) * Point; // Minimum distance for stop loss and take profit
+    if (sl < 0 || tp < 0 || (tp - price) < stopLevel || (price - sl) < stopLevel)
+    {
+        Print("Invalid StopLoss or TakeProfit values. SL: ", sl, ", TP: ", tp);
         return; // Exit the function if SL or TP is invalid
     }
 
@@ -223,14 +276,19 @@ void OpenSellOrder()
     double tp = price - TakeProfit * Point; // Calculate take profit price based on the defined take profit in pips
 
     // Check if LotSize is valid
-    if (LotSize < MarketInfo(Symbol(), MODE_MINLOT) || LotSize > MarketInfo(Symbol(), MODE_MAXLOT)) {
-        Print("Invalid LotSize: ", LotSize);
+    double minLot = MarketInfo(Symbol(), MODE_MINLOT);
+    double maxLot = MarketInfo(Symbol(), MODE_MAXLOT);
+    if (LotSize < minLot || LotSize > maxLot)
+    {
+        Print("Invalid LotSize: ", LotSize, " (Min: ", minLot, ", Max: ", maxLot, ")");
         return; // Exit the function if LotSize is invalid
     }
 
     // Check if StopLoss and TakeProfit are valid
-    if (sl < 0 || tp < 0 || (price - tp) < Point || (sl - price) < Point) {
-        Print("Invalid StopLoss or TakeProfit values.");
+    double stopLevel = MarketInfo(Symbol(), MODE_STOPLEVEL) * Point; // Minimum distance for stop loss and take profit
+    if (sl < 0 || tp < 0 || (price - tp) < stopLevel || (sl - price) < stopLevel)
+    {
+        Print("Invalid StopLoss or TakeProfit values. SL: ", sl, ", TP: ", tp);
         return; // Exit the function if SL or TP is invalid
     }
 
