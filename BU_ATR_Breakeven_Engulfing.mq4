@@ -116,17 +116,28 @@ void OnTick() // Function called on every market tick
         return; // Check for a new bar; if not, exit the function
 
     double rsiValue = iRSI(NULL, 0, RSIPeriod, PRICE_CLOSE, 1); // Get the RSI value for the latest bar
+    Print("Current RSI Value: ", rsiValue); // Log the current RSI value
 
     // Check for bullish engulfing pattern with RSI filter
     if (isBullishEngulfing(1) && rsiValue >= RSIBuy && CountBuy() < MaxLayer)
     {                   // If a bullish engulfing pattern is detected and RSI is above the buy threshold
+        Print("Bullish Engulfing detected. Attempting to open a buy order."); // Log the attempt to open a buy order
         OpenBuyOrder(); // Attempt to open a buy order
+    }
+    else
+    {
+        Print("No bullish engulfing pattern or conditions not met for buy."); // Log if conditions are not met
     }
 
     // Check for bearish engulfing pattern with RSI filter
     if (isBearishEngulfing(1) && rsiValue <= RSISell && CountSell() < MaxLayer)
     {                    // If a bearish engulfing pattern is detected and RSI is below the sell threshold
+        Print("Bearish Engulfing detected. Attempting to open a sell order."); // Log the attempt to open a sell order
         OpenSellOrder(); // Attempt to open a sell order
+    }
+    else
+    {
+        Print("No bearish engulfing pattern or conditions not met for sell."); // Log if conditions are not met
     }
 
     // Manage trailing stops and breakeven
