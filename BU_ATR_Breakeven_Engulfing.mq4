@@ -34,16 +34,22 @@ string MB_CAPTION = ExpertName + " v" + Version + " | " + Copyright; // Create a
 // Input parameters
 extern int MaxLayer = 10;          // Maximum number of layers (orders) allowed
 extern double LotSize = 0.01;      // Lot size for each order (keep this declaration)
-extern double StopLoss = 100;      // Stop loss in pips
-extern double TakeProfit = 20;     // Take profit in pips
+extern double StopLoss = 50;       // Stop loss in pips (adjusted)
+extern double TakeProfit = 10;     // Take profit in pips (adjusted)
 extern int RSIPeriod = 14;         // Period for the RSI (Relative Strength Index)
-extern double RSIBuy = 70;         // RSI value threshold for buy signals
-extern double RSISell = 30;        // RSI value threshold for sell signals
+extern double RSIBuy = 30;         // RSI value threshold for buy signals (adjusted)
+extern double RSISell = 70;        // RSI value threshold for sell signals (adjusted)
 extern int BreakevenPips = 20;     // Number of pips to move to breakeven
 extern int TrailingPips = 100;     // Number of pips for trailing stop
 extern int MagicNumber = 12345;    // Unique identifier for the EA's orders
 extern int ATRPeriod = 14;         // Period for the ATR (Average True Range)
 extern double ATRMultiplier = 1.5; // Multiplier for the ATR value
+
+// Define an enum for analysis mode
+enum AnalysisMode { OnTick, OnNewBar }; // Enum for analysis modes
+
+// Input parameter for analysis mode
+extern AnalysisMode TradeAnalysisMode = OnNewBar; // Dropdown input for analysis mode
 
 // Global variables
 int ticket = 0;             // Variable to store the ticket number of the last order
@@ -109,33 +115,39 @@ int OnInit() // Initialization function called when the EA starts
 double OnTester()
 {
     // Force a trade on initialization
-    if (!tradeExecuted) {
-        double price = Ask; // Get the current ask price
-        double sl = price - StopLoss * Point; // Calculate stop loss price
+    if (!tradeExecuted)
+    {
+        double price = Ask;                     // Get the current ask price
+        double sl = price - StopLoss * Point;   // Calculate stop loss price
         double tp = price + TakeProfit * Point; // Calculate take profit price
 
         // Validate LotSize
         double minLot = MarketInfo(Symbol(), MODE_MINLOT);
         double maxLot = MarketInfo(Symbol(), MODE_MAXLOT);
-        if (LotSize < minLot || LotSize > maxLot) {
+        if (LotSize < minLot || LotSize > maxLot)
+        {
             Print("Invalid LotSize: ", LotSize, " (Min: ", minLot, ", Max: ", maxLot, ")");
             return 0; // Exit if LotSize is invalid
         }
 
         // Validate StopLoss and TakeProfit
         double stopLevel = MarketInfo(Symbol(), MODE_STOPLEVEL) * Point; // Minimum distance for stop loss and take profit
-        if (sl < 0 || tp < 0 || (tp - price) < stopLevel || (price - sl) < stopLevel) {
+        if (sl < 0 || tp < 0 || (tp - price) < stopLevel || (price - sl) < stopLevel)
+        {
             Print("Invalid StopLoss or TakeProfit values. SL: ", sl, ", TP: ", tp);
             return 0; // Exit if SL or TP is invalid
         }
 
         // Open a buy order
         ticket = OrderSend(Symbol(), OP_BUY, LotSize, price, 3, sl, tp, "Forced Buy Order", MagicNumber, 0, clrGreen);
-        if (ticket < 0) {
+        if (ticket < 0)
+        {
             Print("Error opening forced BUY order: ", GetLastError()); // Print error message
-        } else {
+        }
+        else
+        {
             Print("Forced BUY order opened successfully"); // Print success message
-            tradeExecuted = true; // Set the flag to true
+            tradeExecuted = true;                          // Set the flag to true
         }
     }
 
@@ -155,20 +167,24 @@ void OnDeinit(const int reason) // Deinitialization function called when the EA 
 //+------------------------------------------------------------------+
 void OnTick() // Function called on every market tick
 {
-    if (!newbar())
-        return; // Check for a new bar; if not, exit the function
+    // Check the selected analysis mode
+    if (TradeAnalysisMode == OnNewBar && !newbar())
+    {
+        Print("Conditions not met for trading (not a new bar).");
+        return; // Exit if not a new bar
+    }
 
     // Your existing trading logic here...
     double rsiValue = iRSI(NULL, 0, RSIPeriod, PRICE_CLOSE, 1); // Get the RSI value for the latest bar
-    Print("Current RSI Value: ", rsiValue); // Log the current RSI value
+    Print("Current RSI Value: ", rsiValue);                     // Log the current RSI value
 
     // Check for bullish engulfing pattern with RSI filter
     bool bullishEngulfing = isBullishEngulfing(1);
     Print("Bullish Engulfing: ", bullishEngulfing); // Log the result of the bullish engulfing check
     if (bullishEngulfing && rsiValue >= RSIBuy && CountBuy() < MaxLayer)
-    {                   
+    {
         Print("Attempting to open a buy order."); // Log the attempt to open a buy order
-        OpenBuyOrder(); // Attempt to open a buy order
+        OpenBuyOrder();                           // Attempt to open a buy order
     }
     else
     {
@@ -179,9 +195,9 @@ void OnTick() // Function called on every market tick
     bool bearishEngulfing = isBearishEngulfing(1);
     Print("Bearish Engulfing: ", bearishEngulfing); // Log the result of the bearish engulfing check
     if (bearishEngulfing && rsiValue <= RSISell && CountSell() < MaxLayer)
-    {                    
+    {
         Print("Attempting to open a sell order."); // Log the attempt to open a sell order
-        OpenSellOrder(); // Attempt to open a sell order
+        OpenSellOrder();                           // Attempt to open a sell order
     }
     else
     {
